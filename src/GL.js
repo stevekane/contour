@@ -1,10 +1,11 @@
 const viewport = ({ viewportWidth: w, viewportHeight: h }) => [ w, h ]
+const time = ({ time }) => time
+const toArg = ({ type, name }) => `${ type } ${ name }`
 
-const blendSDF = function ( regl, { buffer, uniforms: u, sdf, op } ) {
+const blendSDF = function ( regl, { buffer: pos, uniforms: u, sdf, op } ) {
   var count = 3
-  var attributes = {
-    pos: buffer 
-  }
+  var depth = { enable: false }
+  var attributes = { pos }
   var uniforms = { viewport }
   var customUniforms = ''
   var sdfFunction = ''
@@ -16,13 +17,13 @@ const blendSDF = function ( regl, { buffer, uniforms: u, sdf, op } ) {
   }
 
   sdfFunction += 'float sdf ('
-  sdfFunction += sdf.args.map(a => `${ a.type } ${ a.name }`).join(', ')
+  sdfFunction += sdf.args.map(toArg).join(', ')
   sdfFunction += ') {\n'
   sdfFunction += sdf.body
   sdfFunction += '\n}'
 
   opFunction += 'float op ('
-  opFunction += op.args.map(a => `${ a.type } ${ a.name }`).join(', ')
+  opFunction += op.args.map(toArg).join(', ')
   opFunction += ') { \n'
   opFunction += op.body
   opFunction += '\n}'
@@ -53,10 +54,10 @@ const blendSDF = function ( regl, { buffer, uniforms: u, sdf, op } ) {
   `
   var framebuffer = regl.prop('to')
 
-  return regl({ vert, frag, count, attributes, uniforms, framebuffer })
+  return regl({ vert, frag, count, attributes, uniforms, framebuffer, depth })
 }
 
-const render = function ( regl, { buffer } ) {
+const render = function ( regl, { buffer: pos } ) {
   var vert = `
     attribute vec4 pos;
 
@@ -67,6 +68,7 @@ const render = function ( regl, { buffer } ) {
   var frag = `
     precision mediump float; 
 
+    uniform float time;
     uniform vec2 viewport;
     uniform sampler2D from;
     uniform vec4 border_color;
@@ -84,17 +86,7 @@ const render = function ( regl, { buffer } ) {
     }
 
     float grid ( vec2 c, float s ) {
-      return 
-        clamp(
-          min(
-            mod(
-              c.y, 
-              s), 
-            mod(
-              c.x, 
-              s)), 
-          .8, 
-          1.);
+      return clamp(min(mod(c.y, s), mod(c.x, s)), .8, 1.);
     }
 
     float border ( float d, float w ) {
@@ -112,19 +104,18 @@ const render = function ( regl, { buffer } ) {
       float d = texture2D(from, p).a;
 
       c = mix(c, gradient_color, gradient(p));
-      c *= grid(fc, grid_spacing);
       c = mix(c, fill_color, fill(d));
       c = mix(c, border_color, border(d, border_width));
+      c *= grid(fc, grid_spacing);
 
       gl_FragColor = c;
     }
   `
   var count = 3
-  var attributes = {
-    pos: buffer 
-  }
+  var attributes = { pos }
   var uniforms = { 
     viewport, 
+    time,
     from: regl.prop('from'),
     border_color: regl.prop('border_color'),
     border_width: regl.prop('border_width'),

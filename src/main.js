@@ -7,6 +7,12 @@ var BIG_TRIANGLE = require('big-triangle')
 var UI_LAYER = document.createElement('div')
 var GL_LAYER = document.createElement('div')
 
+var ROYAL_BLUE = [ 39 / 255, 64 / 255, 139 / 255, 1 ]
+var CORNFLOWER_BLUE = [ 100 / 255, 149 / 255, 247 / 255, 1 ]
+var LIGHT_GRAY = [ .8, .8, .8, 1 ]
+var MEDIUM_GRAY = [ .5, .5, .5, 1 ]
+var DARK_GRAY = [ .1, .1, .1, 1 ]
+
 document.body.appendChild(GL_LAYER)
 document.body.appendChild(UI_LAYER)
 
@@ -37,7 +43,7 @@ var regl = Regl({
   container: GL_LAYER
 })
 var bt = BIG_TRIANGLE(4)
-var blendSDF = GL.blendSDF(regl, {
+var smoothBlendCircle = GL.blendSDF(regl, {
   buffer: bt,
   uniforms: [
     { name: 'position', type: 'vec2' },
@@ -67,43 +73,50 @@ var blendSDF = GL.blendSDF(regl, {
 })
 var render = GL.render(regl, { buffer: bt })
 
-var POW = 10
-var width = height = Math.pow(2, POW)
-var accum = regl.framebuffer({ width, height, colorType: 'float' })
-var each = regl.framebuffer({ width, height, colorType: 'float' })
-var ROYAL_BLUE = [ 39 / 255, 64 / 255, 139 / 255, 1 ]
-var CORNFLOWER_BLUE = [ 100 / 255, 149 / 255, 247 / 255, 1 ]
-var LIGHT_GRAY = [ .8, .8, .8, 1 ]
-var MEDIUM_GRAY = [ .5, .5, .5, 1 ]
-var DARK_GRAY = [ .1, .1, .1, 1 ]
+var state = {
+  edits: [],
+  shape: new Shape(regl, 10)
+}
 
-function update ({ time, tick }) {
-  regl.clear({ 
-    framebuffer: accum, 
-    color: [ 0, 0, 0, 1 ] 
+function Shape ( regl, power ) {
+  var width = height = Math.pow(2, power)
+  var color = [ 0, 0, 0, 1 ]
+  var to = regl.framebuffer({ width, height, colorType: 'float' })
+  var from = regl.framebuffer({ width, height, colorType: 'float' })
+
+
+  this.to = to
+  this.from = from
+  regl.clear({ framebuffer: to, color })
+  regl.clear({ framebuffer: from, color })
+}
+
+function addEdit ( state, edit ) {
+  var { edits, shape } = state
+  var tmp
+  
+  edits.push(edit)
+  smoothBlendCircle({ 
+    position: edit.position, 
+    radius: edit.radius, 
+    blend_radius: edit.blend_radius,
+    from: shape.from,
+    to: shape.to
   })
-  regl.clear({ 
-    framebuffer: each, 
-    color: [ 0, 0, 0, 1 ] 
-  })
-  blendSDF({ 
-    position: [ .8, .5 ], 
-    radius: .3, 
-    blend_radius: 0.1,
-    from: accum,
-    to: each
-  })
-  blendSDF({
-    position: [ .2, .5 ],
-    radius: .3,
-    blend_radius: 0.1,
-    from: each,
-    to: accum
+  tmp = shape.from
+  shape.from = shape.to
+  shape.to = tmp
+}
+
+function update () {
+  addEdit(state, {
+    position: [ Math.random(), Math.random() ],
+    radius: Math.random() / 100,
+    blend_radius: 0.05
   })
   render({
-    to: null,
-    from: accum,
-    border_width: 0.01,
+    from: state.shape.from,
+    border_width: 0.001,
     border_color: ROYAL_BLUE,
     fill_color: CORNFLOWER_BLUE,
     background_color: MEDIUM_GRAY,
@@ -111,8 +124,7 @@ function update ({ time, tick }) {
     grid_color: DARK_GRAY,
     grid_spacing: 40
   })
-  DOM.render(<UI />, UI_LAYER)
+  DOM.render(<div>{ state.edits.length }</div>, UI_LAYER)
 }
 
-update({ time: 0, tick: 0 })
-// regl.frame(update)
+regl.frame(update)
