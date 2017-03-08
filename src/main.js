@@ -71,10 +71,21 @@ var POW = 10
 var width = height = Math.pow(2, POW)
 var accum = regl.framebuffer({ width, height, colorType: 'float' })
 var each = regl.framebuffer({ width, height, colorType: 'float' })
+var ROYAL_BLUE = [ 39 / 255, 64 / 255, 139 / 255, 1 ]
+var CORNFLOWER_BLUE = [ 100 / 255, 149 / 255, 247 / 255, 1 ]
+var LIGHT_GRAY = [ .8, .8, .8, 1 ]
+var MEDIUM_GRAY = [ .5, .5, .5, 1 ]
+var DARK_GRAY = [ .1, .1, .1, 1 ]
 
 function update ({ time, tick }) {
-  regl.clear({ framebuffer: accum, color: [ 0, 0, 0, 1 ] })
-  regl.clear({ framebuffer: each, color: [ 0, 0, 0, 1 ] })
+  regl.clear({ 
+    framebuffer: accum, 
+    color: [ 0, 0, 0, 1 ] 
+  })
+  regl.clear({ 
+    framebuffer: each, 
+    color: [ 0, 0, 0, 1 ] 
+  })
   blendSDF({ 
     position: [ .8, .5 ], 
     radius: .3, 
@@ -91,7 +102,14 @@ function update ({ time, tick }) {
   })
   render({
     to: null,
-    from: accum
+    from: accum,
+    border_width: 0.01,
+    border_color: ROYAL_BLUE,
+    fill_color: CORNFLOWER_BLUE,
+    background_color: MEDIUM_GRAY,
+    gradient_color: LIGHT_GRAY,
+    grid_color: DARK_GRAY,
+    grid_spacing: 40
   })
   DOM.render(<UI />, UI_LAYER)
 }
